@@ -20,7 +20,14 @@ client.once('ready', () => {
 
 // when a message is sent, check if it starts with prefix and is not sent by a bot.
 client.on('message', message => {
-    if(!message.content.startsWith(prefix) || message.author.bot || !message.member.roles.cache.find(r => r.name === permittedRole)) return;
+    if(!message.content.startsWith(prefix) || message.author.bot) return;
+
+    // check if the commandgiver has the role that permits using the command.
+    if(message.content.startsWith(prefix) && !message.member.roles.cache.find(r => r.name === permittedRole))
+    {
+        message.channel.send("You do not have permission to use that command. You have no power here");
+        return;
+    }
 
     // split message into array of arguments
     const args = message.content.slice(prefix.length).split(",");
@@ -38,6 +45,7 @@ client.on('message', message => {
         // check if member on server
         const members = message.guild.members.fetch({query: args[0], limit: 1});
 
+        // init variables
         var target;
         var isValidName = true;
         var isAgartek = false;
@@ -46,7 +54,9 @@ client.on('message', message => {
         var intervalEnd;
         
         members
+        // set target
         .then(memberCollection => {target = memberCollection.at(0);})
+        // check if the given target name is valid.
         .then(member => {
             if (target == undefined)
             {
@@ -155,4 +165,4 @@ const delay = millis => new Promise((resolve, reject) =>
   setTimeout(_ => resolve(), millis)
 });
 // login to bot. Bot token found on discord developer portal
-client.login('OTM1MzQwOTQ2NDgzMTg3NzQy.Ye9OIw.AgLLbkhVktRkglAuQ6Ldjad53WU');
+client.login('OTM1MzQwOTQ2NDgzMTg3NzQy.Ye9OIw.PMaAum62hzIRyffMdPYiOw9IqPw');
