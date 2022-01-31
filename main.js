@@ -20,7 +20,14 @@ client.once('ready', () => {
 
 // when a message is sent, check if it starts with prefix and is not sent by a bot.
 client.on('message', message => {
-    if(!message.content.startsWith(prefix) || message.author.bot || !message.member.roles.cache.find(r => r.name === permittedRole)) return;
+    if(!message.content.startsWith(prefix) || message.author.bot) return;
+
+    // check if the commandgiver has the role that permits using the command.
+    if(message.content.startsWith(prefix) && !message.member.roles.cache.find(r => r.name === permittedRole))
+    {
+        message.channel.send("You do not have permission to use that command. You have no power here");
+        return;
+    }
 
     // split message into array of arguments
     const args = message.content.slice(prefix.length).split(",");
@@ -38,61 +45,117 @@ client.on('message', message => {
         // check if member on server
         const members = message.guild.members.fetch({query: args[0], limit: 1});
 
-        var member = members.then(memberCollection => {return memberCollection.at(0);});
-
-        // error message if member not found on server
-        member.then(guildMember => {return guildMember.user.username})
-        .catch(err => {message.channel.send('Member not found.');})
-        // log who kicked who
-        .then(targetUsername => {member.then(guildMember => {console.log(message.author.username + " kicked " + targetUsername);})});
+        // init variables
+        var target;
+        var isValidName = true;
+        var isAgartek = false;
+        var repeats;
+        var intervalStart;
+        var intervalEnd;
         
-        //check if trying to kick agartek.
-        //member.then(isAgartek => {if(member.user.username == "agartek"){message.channel.send("You just tried to kick someone smarter, better, stronger, taller, funnier than yourself. Don't do that.");}})
-        //.catch(unUsed =>{message.channel.send("an error was made")});
-        // kick target repeatedly
-        member.then(notUsed => {
-        var repeats = 0;
-        //console.log("args length: " + args.length);
-        // assign repeats a length depending how many arguments received.
-        if (args.length == 1)
-        {
-            repeats = getRndInteger(3, 5);
-        }
-        else if (args.length == 2)
-        {
-            repeats = args[1];
-        }
-        else
-        {
-            repeats = getRndInteger(Number(args[1]), Number(args[2]));
-        }
-        console.log("repeats: " + repeats);
-        // disconnect target repeats times.
-        disconnectAndWait(repeats, member);
-        })   
+        members
+        // set target
+        .then(memberCollection => {target = memberCollection.at(0);})
+        // check if the given target name is valid.
+        .then(member => {
+            if (target == undefined)
+            {
+                isValidName = false;
+            } 
+            console.log("isValidName: " + isValidName);
+        })
+        .then(unUsed => {
+            if (isValidName)
+            {
+                // check if trying to kick agartek
+                if (target.user.username == "agartek") isAgartek = true;
+                console.log("is agartek? " + isAgartek);
+                
+                // define repeats and interval
+                if (!isAgartek)
+                {
+                    //repeats
+                    if (args[1] == " ")
+                    {
+                        repeats = getRndInteger(3, 5);
+                    }
+                    else
+                    {
+                        repeatsParts = args[1].split("-");
+                        if (repeatsParts.length == 1)
+                        {
+                            repeats = repeatsParts[0];
+                        }
+                        else
+                        {
+                            repeats = getRndInteger(repeatsParts[0], repeatsParts[1]);
+                        }
+                    }
+                    console.log("repeats: " + repeats);
+                    
+                    //interval
+                    if (args[2] == " " || args[2] == "")
+                    {
+                        intervalStart = 3000;
+                        intervalEnd = 10000;
+                    }
+                    else
+                    {
+                        intervalParts = args[2].split("-");
+                        if (intervalParts.length == 1)
+                        {
+                            intervalStart = intervalParts[0]*1000;
+                            intervalEnd = intervalParts[0]*1000;
+                        }
+                        else
+                        {
+                            intervalStart = intervalParts[0]*1000;
+                            intervalEnd = intervalParts[1]*1000;
+                        }
+                    }
+                    console.log("intervalStart: " + intervalStart);
+                    console.log("intervalEnd: " + intervalEnd)
+                    console.log(message.author.username + " kicked " + target.user.username + " " + repeats + " times with an interval of " + intervalStart/1000 + "-" + intervalEnd/1000 + " seconds");
+                }
+                else
+                {
+                    message.channel.send("You just tried to kick someone smarter, better, stronger, taller, funnier than yourself. Don't do that.");
+                    console.log(message.author.username + " just tried to kick agartek. What a monkey.")
+                }
+            }
+            else{
+                message.channel.send("Member not found.")
+            }
+        })
+        .then(unUsed => {
+            if (isValidName && !isAgartek)
+            {
+                disconnectAndWait(repeats, target, intervalStart, intervalEnd);
+            }
+        });
     }
 })
+
 // get random integer between min and max, min and max inclusive.
 function getRndInteger(min, max) 
 {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
+    return Math.floor(Math.random() * (Number(max) - Number(min) + 1)) + Number(min);
 }
 
 // kicks target 'repeats' times. toBeKicked is a promise<guildMember>
-async function disconnectAndWait(repeats, toBeKicked)
+async function disconnectAndWait(repeatcounter, toBeKicked, millisecondsStart, millisecondsEnd)
 {
     // disconnect target
-    toBeKicked.then(guildMember => {guildMember.voice.disconnect()})
-    .catch(unUsed =>{});
+    toBeKicked.voice.disconnect();
     // generate a random amount of milliseconds between 3000 and 20000 to wait.
-    var milliseconds = getRndInteger(3000, 20000);
+    var milliseconds = getRndInteger(millisecondsStart, millisecondsEnd);
     await delay(milliseconds);
     console.log(milliseconds/1000 + " seconds just passed!");
-    repeats = repeats - 1;
+    repeatcounter = repeatcounter - 1;
     // calls itself again if repeats is not 0. As repeats gets decremented every time disconnectAndWait is run, it will eventually stop.
-    if (repeats > 0)
+    if (repeatcounter > 0)
     {
-        disconnectAndWait(repeats, toBeKicked);
+        disconnectAndWait(repeatcounter, toBeKicked, millisecondsStart, millisecondsEnd);
     }
 }
 
@@ -102,4 +165,4 @@ const delay = millis => new Promise((resolve, reject) =>
   setTimeout(_ => resolve(), millis)
 });
 // login to bot. Bot token found on discord developer portal
-client.login('OTM1MzQwOTQ2NDgzMTg3NzQy.Ye9OIw.bnppASgdwhJm8H_-psnLCnREOLw');
+client.login('OTM1MzQwOTQ2NDgzMTg3NzQy.Ye9OIw.PMaAum62hzIRyffMdPYiOw9IqPw');
